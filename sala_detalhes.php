@@ -1677,9 +1677,10 @@ checkNotifications(); // Initial check
 
 // Chart.js Initialization
 const chartEl = document.getElementById('engagementChart');
-if (chartEl) {
-    const ctx = chartEl.getContext('2d');
-    new Chart(ctx, {
+if (chartEl && typeof Chart !== 'undefined') {
+    try {
+        const ctx = chartEl.getContext('2d');
+        new Chart(ctx, {
         type: 'bar',
         data: {
             labels: <?= json_encode(array_map('htmlspecialchars', array_column($posts, 'cand_nome'))) ?>,
@@ -1697,6 +1698,7 @@ if (chartEl) {
             scales: { y: { beginAtZero: true } }
         }
     });
+    } catch (e) { console.error("Chart.js failed to initialize:", e); }
 }
 // ── PHASE MANAGER POLLING & LOCKING ─────────────────────────────────────────
 const salaId = <?= $salaId ?>;

@@ -5,6 +5,11 @@
  */
 require_once '../config/helpers.php';
 
+// BLINDAGEM DE OUTPUT: Prevenir que Notices quebrem o JSON
+error_reporting(0);
+ini_set('display_errors', 0);
+ob_start();
+
 // Ensure user is logged in
 $userId = requireAuth();
 
@@ -49,6 +54,7 @@ try {
             $now = new DateTime();
             $phaseData = computeRoomPhase($sala, $now);
             
+            ob_end_clean();
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => true,
