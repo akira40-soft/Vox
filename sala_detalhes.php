@@ -466,12 +466,24 @@ if ($salaId > 0 && $_SESSION['user_role'] !== 'admin') {
 
     <!-- Hero Title Section -->
     <div style="margin-bottom: 2.5rem;">
-        <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem;">
+        <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap;">
             <span class="status-badge status-<?= strtolower($sala['estado']) ?>"><?= $sala['estado'] ?></span>
-            <span class="badge badge-info"><?= strtoupper($sala['visibilidade']) ?></span>
+            <span class="badge badge-info" style="border-radius:99px;"><?= strtoupper($sala['visibilidade']) ?></span>
+            <?php if (!empty($sala['tipo_votacao_sala'])): ?>
+            <span class="badge" style="background:var(--primary); color:white; border-radius:99px; padding:0.4rem 0.8rem; font-size:0.75rem; font-weight:800; text-transform:uppercase; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+                <i class="fa fa-balance-scale" style="margin-right:0.3rem;"></i> SISTEMA: <?= str_replace('_', ' ', strtoupper($sala['tipo_votacao_sala'])) ?>
+            </span>
+            <?php endif; ?>
+            <span class="badge" style="background:var(--gray-200); color:var(--gray-700); border-radius:99px; padding:0.4rem 0.8rem; font-size:0.75rem; font-weight:800; text-transform:uppercase;">
+                <i class="fa fa-tag" style="margin-right:0.3rem;"></i> TEMPLATE <?= strtoupper($sala['tipo'] ?? 'institucional') ?>
+            </span>
         </div>
         <h1 class="ve-title" style="font-size: 3rem;"><?= htmlspecialchars($sala['nome']) ?></h1>
-        <p style="color: var(--gray-500); font-weight: 500;">Hub oficial da eleição organizada por <a href="perfil.php?id=<?= $sala['organizador_id'] ?>"><strong><?= htmlspecialchars($sala['organizador_nome']) ?></strong></a></p>
+        <?php if (!empty($sala['nome_organizacao'])): ?>
+            <p style="color: var(--gray-500); font-weight: 500;">Hub oficial da eleição organizada por <strong><?= htmlspecialchars($sala['nome_organizacao']) ?></strong></p>
+        <?php else: ?>
+            <p style="color: var(--gray-500); font-weight: 500;">Hub oficial da eleição organizada por <a href="perfil.php?id=<?= $sala['organizador_id'] ?>"><strong><?= htmlspecialchars($sala['organizador_nome']) ?></strong></a></p>
+        <?php endif; ?>
     </div>
 
     <!-- LIVE VOTE TICKER -->

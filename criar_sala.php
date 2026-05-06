@@ -14,7 +14,9 @@ if (!isset($_SESSION['wizard_data']) || isset($_GET['reset'])) {
     $_SESSION['wizard_data'] = [
         'nome'                  => '',
         'descricao'             => '',
-        'tipo'                  => 'nacional',
+        'nome_organizacao'      => '',
+        'tipo'                  => 'institucional',
+        'tipo_votacao_sala'     => 'maioria_simples',
         'visibilidade'          => 'privada',
         'provincia'             => '',
         'data_inicio'           => '',
@@ -25,6 +27,8 @@ if (!isset($_SESSION['wizard_data']) || isset($_GET['reset'])) {
         'data_campanha_fim'     => '',
         'data_votacao_inicio'   => '',
         'data_votacao_fim'      => '',
+        'inicio_manual'         => 0,
+        'fim_manual'            => 0,
         'temas'                 => []
     ];
 }
@@ -37,7 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($step === 1) {
         $_SESSION['wizard_data']['nome']                 = sanitize($_POST['nome'] ?? '');
         $_SESSION['wizard_data']['descricao']             = sanitize($_POST['descricao'] ?? '');
-        $_SESSION['wizard_data']['tipo']                  = sanitize($_POST['tipo'] ?? 'nacional');
+        $_SESSION['wizard_data']['nome_organizacao']      = sanitize($_POST['nome_organizacao'] ?? '');
+        $_SESSION['wizard_data']['tipo']                  = sanitize($_POST['tipo'] ?? 'institucional');
+        $_SESSION['wizard_data']['tipo_votacao_sala']     = sanitize($_POST['tipo_votacao_sala'] ?? 'maioria_simples');
         $_SESSION['wizard_data']['visibilidade']          = sanitize($_POST['visibilidade'] ?? 'privada');
         $_SESSION['wizard_data']['provincia']             = (int)($_POST['provincia'] ?? 0);
         $_SESSION['wizard_data']['data_inicio']           = sanitize($_POST['data_inicio'] ?? '');
@@ -46,12 +52,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['wizard_data']['permitir_campanha']     = isset($_POST['permitir_campanha']) ? 1 : 0;
         $_SESSION['wizard_data']['data_campanha_inicio']  = sanitize($_POST['data_campanha_inicio'] ?? '');
         $_SESSION['wizard_data']['data_campanha_fim']     = sanitize($_POST['data_campanha_fim'] ?? '');
-        $_SESSION['wizard_data']['data_votacao_inicio']   = sanitize($_POST['data_votacao_inicio'] ?? '');
-        $_SESSION['wizard_data']['data_votacao_fim']      = sanitize($_POST['data_votacao_fim'] ?? '');
+        $_SESSION['wizard_data']['inicio_manual']         = isset($_POST['inicio_manual']) ? 1 : 0;
+        $_SESSION['wizard_data']['fim_manual']            = isset($_POST['fim_manual']) ? 1 : 0;
+        $_SESSION['wizard_data']['data_votacao_inicio']   = ($_SESSION['wizard_data']['inicio_manual']) ? '' : sanitize($_POST['data_votacao_inicio'] ?? '');
+        $_SESSION['wizard_data']['data_votacao_fim']      = ($_SESSION['wizard_data']['fim_manual']) ? '' : sanitize($_POST['data_votacao_fim'] ?? '');
 
         if (empty($_SESSION['wizard_data']['nome']))               $errors[] = 'O nome da sala é obrigatório.';
-        if (empty($_SESSION['wizard_data']['data_votacao_inicio'])) $errors[] = 'Defina quando a votação começa.';
-        if (empty($_SESSION['wizard_data']['data_votacao_fim']))    $errors[] = 'Defina quando a votação termina.';
+        if (!$_SESSION['wizard_data']['inicio_manual'] && empty($_SESSION['wizard_data']['data_votacao_inicio'])) $errors[] = 'Defina quando a votação começa (ou escolha "Manual").';
+        if (!$_SESSION['wizard_data']['fim_manual'] && empty($_SESSION['wizard_data']['data_votacao_fim']))    $errors[] = 'Defina quando a votação termina (ou escolha "Manual").';
         if ($_SESSION['wizard_data']['permitir_campanha']) {
             if (empty($_SESSION['wizard_data']['data_campanha_inicio'])) $errors[] = 'Defina quando a campanha começa.';
             if (empty($_SESSION['wizard_data']['data_campanha_fim']))    $errors[] = 'Defina quando a campanha termina.';
@@ -115,20 +123,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         (nome, descricao, codigo_acesso, tipo, visibilidade, provincia_origem,
                          organizador_id, estado, fase_atual, data_inicio, data_fim,
                          data_campanha_inicio, data_campanha_fim, data_votacao_inicio, data_votacao_fim,
-                         voto_anonimo, permitir_campanha)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'rascunho', 'aguardando', ?, ?, ?, ?, ?, ?, ?, ?)
+                         voto_anonimo, permitir_campanha, nome_organizacao, tipo_votacao_sala)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'rascunho', 'aguardando', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $stmt->execute([
                     $data['nome'], $data['descricao'], $codigo, $data['tipo'], $data['visibilidade'],
                     $data['provincia'] > 0 ? $data['provincia'] : null,
                     $userId,
-                    $data['data_votacao_inicio'] ?? null, // legacy data_inicio
-                    $data['data_votacao_fim']    ?? null, // legacy data_fim
+                    $data['data_votacao_inicio'] ?: null, // legacy data_inicio
+                    $data['data_votacao_fim']    ?: null, // legacy data_fim
                     $data['data_campanha_inicio'] ?: null,
                     $data['data_campanha_fim']    ?: null,
                     $data['data_votacao_inicio']  ?: null,
                     $data['data_votacao_fim']     ?: null,
-                    (bool)($data['voto_anonimo'] ?? true), (bool)($data['permitir_campanha'] ?? true)
+                    (bool)($data['voto_anonimo'] ?? true), (bool)($data['permitir_campanha'] ?? true),
+                    $data['nome_organizacao'] ?: null,
+                    $data['tipo_votacao_sala'] ?? 'maioria_simples'
                 ]);
                 $salaId = $pdo->lastInsertId();
 
@@ -372,27 +382,47 @@ require 'includes/header.php';
                     <label>Breve Descrição</label>
                     <textarea name="descricao" class="form-control" rows="2"><?= htmlspecialchars($_SESSION['wizard_data']['descricao']) ?></textarea>
                 </div>
+                <div class="form-group">
+                    <label>Grupo / Organização <span style="font-weight:400; color:var(--gray-500);">(Opcional)</span></label>
+                    <input type="text" name="nome_organizacao" class="form-control"
+                           placeholder="Ex: Associação Académica, Comissão Eleitoral..."
+                           value="<?= htmlspecialchars($_SESSION['wizard_data']['nome_organizacao'] ?? '') ?>">
+                    <small style="color:var(--gray-500); font-size:0.8rem;">Nomeie o grupo que promove esta eleição. Aparecerá no cabeçalho em vez do seu nome.</small>
+                </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                     <div class="form-group">
-                        <label>Âmbito</label>
+                        <label>Categoria (Template) *</label>
                         <select name="tipo" class="form-control">
-                            <option value="institucional"<?= $_SESSION['wizard_data']['tipo'] == 'institucional'? 'selected' : '' ?>>🏛️ Institucional (Padrão)</option>
-                            <option value="nacional"     <?= $_SESSION['wizard_data']['tipo'] == 'nacional'     ? 'selected' : '' ?>>🌍 Nacional</option>
-                            <option value="municipal"    <?= $_SESSION['wizard_data']['tipo'] == 'municipal'    ? 'selected' : '' ?>>🏙️ Municipal</option>
-                            <option value="comunitario"  <?= $_SESSION['wizard_data']['tipo'] == 'comunitario'  ? 'selected' : '' ?>>👥 Comunitário</option>
-                            <option value="pesquisa"     <?= $_SESSION['wizard_data']['tipo'] == 'pesquisa'     ? 'selected' : '' ?>>📊 Pesquisa / Inquérito</option>
+                            <option value="institucional" <?= $_SESSION['wizard_data']['tipo'] == 'institucional'? 'selected' : '' ?>>🏛️ Institucional (Padrão)</option>
+                            <option value="academica"     <?= $_SESSION['wizard_data']['tipo'] == 'academica'     ? 'selected' : '' ?>>🎓 Académica</option>
+                            <option value="nacional"      <?= $_SESSION['wizard_data']['tipo'] == 'nacional'      ? 'selected' : '' ?>>🌍 Nacional</option>
+                            <option value="municipal"     <?= $_SESSION['wizard_data']['tipo'] == 'municipal'     ? 'selected' : '' ?>>🏙️ Municipal</option>
+                            <option value="comunitario"   <?= $_SESSION['wizard_data']['tipo'] == 'comunitario'   ? 'selected' : '' ?>>👥 Comunitário</option>
+                            <option value="empresarial"   <?= $_SESSION['wizard_data']['tipo'] == 'empresarial'   ? 'selected' : '' ?>>🏢 Empresarial</option>
+                            <option value="pesquisa"      <?= $_SESSION['wizard_data']['tipo'] == 'pesquisa'      ? 'selected' : '' ?>>📊 Pesquisa / Inquérito</option>
                         </select>
+                        <small style="color:var(--gray-500); font-size:0.8rem;">Isto adaptará o layout da sala.</small>
                     </div>
                     <div class="form-group">
-                        <label>Província (se aplicável)</label>
-                        <select name="provincia" class="form-control">
-                            <option value="0">Todas</option>
-                            <?php foreach ($provincias as $p): ?>
-                                <option value="<?= $p['id'] ?>" <?= $_SESSION['wizard_data']['provincia'] == $p['id'] ? 'selected' : '' ?>><?= $p['nome'] ?></option>
-                            <?php endforeach; ?>
+                        <label>Regime / Tipo de Votação *</label>
+                        <select name="tipo_votacao_sala" class="form-control">
+                            <option value="maioria_simples" <?= ($_SESSION['wizard_data']['tipo_votacao_sala'] ?? 'maioria_simples') == 'maioria_simples' ? 'selected' : '' ?>>⚖️ Maioria Simples (Ganha o mais votado)</option>
+                            <option value="maioria_absoluta" <?= ($_SESSION['wizard_data']['tipo_votacao_sala'] ?? '') == 'maioria_absoluta' ? 'selected' : '' ?>>🎯 Maioria Absoluta (+50%)</option>
+                            <option value="proporcional" <?= ($_SESSION['wizard_data']['tipo_votacao_sala'] ?? '') == 'proporcional' ? 'selected' : '' ?>>📊 Proporcional (por lista)</option>
+                            <option value="referendo" <?= ($_SESSION['wizard_data']['tipo_votacao_sala'] ?? '') == 'referendo' ? 'selected' : '' ?>>🗳️ Referendo (Sim / Não)</option>
                         </select>
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Província (se aplicável localmente)</label>
+                    <select name="provincia" class="form-control">
+                        <option value="0">Global / Todas</option>
+                        <?php foreach ($provincias as $p): ?>
+                            <option value="<?= $p['id'] ?>" <?= $_SESSION['wizard_data']['provincia'] == $p['id'] ? 'selected' : '' ?>><?= $p['nome'] ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <!-- Visibilidade -->
@@ -459,15 +489,33 @@ require 'includes/header.php';
                             <div style="background: #10b981; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.8rem;" id="vot-step-num">2</div>
                             <strong>Fase de Votação <span style="color: #f59e0b; font-weight: 700;">(obrigatório)</span></strong>
                         </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-left: 2.5rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-left: 2.5rem;">
                             <div class="form-group" style="margin:0">
                                 <label style="font-size: 0.8rem;">Abertura das Urnas *</label>
-                                <input type="datetime-local" name="data_votacao_inicio" class="form-control" required
+                                <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
+                                    <label style="font-size:0.85rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:0.3rem;">
+                                        <input type="radio" name="inicio_manual" value="0" id="inicio-prog" <?= !($_SESSION['wizard_data']['inicio_manual'] ?? 0) ? 'checked' : '' ?>> Programado
+                                    </label>
+                                    <label style="font-size:0.85rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:0.3rem;">
+                                        <input type="radio" name="inicio_manual" value="1" id="inicio-man" <?= ($_SESSION['wizard_data']['inicio_manual'] ?? 0) ? 'checked' : '' ?>> Manual (Botão)
+                                    </label>
+                                </div>
+                                <input type="datetime-local" name="data_votacao_inicio" class="form-control" id="data-inicio-field"
+                                       style="<?= ($_SESSION['wizard_data']['inicio_manual'] ?? 0) ? 'display:none' : '' ?>"
                                        value="<?= $_SESSION['wizard_data']['data_votacao_inicio'] ?>">
                             </div>
                             <div class="form-group" style="margin:0">
                                 <label style="font-size: 0.8rem;">Encerramento das Urnas *</label>
-                                <input type="datetime-local" name="data_votacao_fim" class="form-control" required
+                                <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
+                                    <label style="font-size:0.85rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:0.3rem;">
+                                        <input type="radio" name="fim_manual" value="0" id="fim-prog" <?= !($_SESSION['wizard_data']['fim_manual'] ?? 0) ? 'checked' : '' ?>> Programado
+                                    </label>
+                                    <label style="font-size:0.85rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:0.3rem;">
+                                        <input type="radio" name="fim_manual" value="1" id="fim-man" <?= ($_SESSION['wizard_data']['fim_manual'] ?? 0) ? 'checked' : '' ?>> Manual (Botão)
+                                    </label>
+                                </div>
+                                <input type="datetime-local" name="data_votacao_fim" class="form-control" id="data-fim-field"
+                                       style="<?= ($_SESSION['wizard_data']['fim_manual'] ?? 0) ? 'display:none' : '' ?>"
                                        value="<?= $_SESSION['wizard_data']['data_votacao_fim'] ?>">
                             </div>
                         </div>
@@ -487,6 +535,13 @@ require 'includes/header.php';
                     document.getElementById('campanha-dates').style.display = this.checked ? '' : 'none';
                     document.getElementById('vot-step-num').textContent = this.checked ? '2' : '1';
                 });
+                // Toggle datetime field visibility based on Manual/Programado radio
+                document.querySelectorAll('[name="inicio_manual"]').forEach(r => r.addEventListener('change', function() {
+                    document.getElementById('data-inicio-field').style.display = this.value === '1' ? 'none' : '';
+                }));
+                document.querySelectorAll('[name="fim_manual"]').forEach(r => r.addEventListener('change', function() {
+                    document.getElementById('data-fim-field').style.display = this.value === '1' ? 'none' : '';
+                }));
                 </script>
 
             <?php elseif ($step === 2): ?>
