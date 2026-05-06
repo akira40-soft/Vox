@@ -330,6 +330,44 @@ require_once __DIR__ . '/includes/header.php';
     </section>
 
     <!-- ============================== -->
+    <!-- CARD 4: Gestão de Participantes -->
+    <!-- ============================== -->
+    <section class="ve-card card-full mt-2" style="padding: 2rem;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <h3 style="font-weight: 800; color: var(--text-header);"><i class="fa fa-users"></i> Gestão de Participantes</h3>
+            <div style="background: var(--blue-light); color: var(--blue-dark); padding: 0.5rem 1rem; border-radius: 99px; font-size: 0.85rem; font-weight: 700;">
+                <span id="memberCount">Carregando...</span> Membros
+            </div>
+        </div>
+        
+        <div class="grid-2col" style="gap: 2.5rem;">
+            <!-- Add Member Column -->
+            <div style="border-right: 1px solid var(--border-color); padding-right: 2.5rem;">
+                <h4 style="font-size: 1.1rem; font-weight: 800; margin-bottom: 1.5rem;">Adicionar Diretamente</h4>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Adicione eleitores ou candidatos pelo @username. Eles serão notificados imediatamente.</p>
+                
+                <div style="position: relative;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="memberSearch" class="input-modern" placeholder="Procurar @username..." style="flex: 1; padding: 0.85rem 1.25rem;">
+                        <button class="btn btn-primary" onclick="performMemberSearch()"><i class="fa fa-search"></i></button>
+                    </div>
+                    <div id="memberSearchResults" class="user-search-results" style="display:none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--border-color); border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 100; max-height: 350px; overflow-y: auto; margin-top: 0.5rem;"></div>
+                </div>
+            </div>
+
+            <!-- Member List Column -->
+            <div>
+                <h4 style="font-size: 1.1rem; font-weight: 800; margin-bottom: 1.5rem;">Lista de Participantes</h4>
+                <div id="membersList" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem;">
+                    <div style="text-align: center; padding: 2rem; opacity: 0.5;">
+                        <i class="fa fa-spinner fa-spin fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================== -->
     <!-- Sala Info                      -->
     <!-- ============================== -->
     <section class="ve-card card-full mt-2">
@@ -417,6 +455,137 @@ function updateVoteStats(salaId) {
             showToast('Erro de conexao ao servidor.', 'error');
         });
 }
+
+// ---- Member Management ----
+const salaId = <?= $salaId ?>;
+
+async function loadMembers() {
+    const list = document.getElementById('membersList');
+    try {
+        const res = await fetch(`api/members.php?action=list&sala_id=${salaId}`);
+        const data = await res.json();
+        
+        if (data.success) {
+            document.getElementById('memberCount').textContent = data.members.length;
+            if (data.members.length === 0) {
+                list.innerHTML = '<div style="padding:2rem; text-align:center; opacity:0.5;">Nenhum participante adicionado diretamente.</div>';
+                return;
+            }
+            
+            list.innerHTML = data.members.map(m => `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:0.75rem 1rem; background:var(--gray-50); border-radius:0.75rem; border:1px solid var(--border-color);">
+                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                        <div style="width:36px; height:36px; border-radius:50%; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.8rem;">
+                            ${(m.nome_completo || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <div style="font-weight:700; font-size:0.9rem;">${m.nome_completo}</div>
+                            <div style="font-size:0.75rem; color:var(--gray-500);">@${m.username} • <span style="text-transform:capitalize;">${m.papel}</span></div>
+                        </div>
+                    </div>
+                    <button onclick="removeMember(${m.user_id})" style="background:none; border:none; color:var(--danger); cursor:pointer; padding:0.5rem;" title="Remover">
+                        <i class="fa fa-user-times"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+    } catch(e) {
+        console.error(e);
+        list.innerHTML = '<div style="color:red; padding:1rem;">Erro ao carregar membros.</div>';
+    }
+}
+
+let memberSearchTimer;
+document.getElementById('memberSearch').addEventListener('input', e => {
+    clearTimeout(memberSearchTimer);
+    memberSearchTimer = setTimeout(() => performMemberSearch(), 400);
+});
+
+async function performMemberSearch() {
+    const q = document.getElementById('memberSearch').value.trim();
+    const results = document.getElementById('memberSearchResults');
+    if (q.length < 2) { results.style.display = 'none'; return; }
+    
+    results.innerHTML = '<div style="padding:1rem; text-align:center;"><i class="fa fa-spinner fa-spin"></i></div>';
+    results.style.display = 'block';
+    
+    try {
+        const res = await fetch(`api/users.php?action=search&q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        
+        if (data.success && data.users.length) {
+            results.innerHTML = data.users.map(u => `
+                <div onclick="addMember(${u.id}, '${u.nome_completo}')" style="padding:0.75rem 1.25rem; cursor:pointer; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--gray-100);" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background=''">
+                    <div>
+                        <div style="font-weight:700;">${u.nome_completo}</div>
+                        <div style="font-size:0.8rem; color:var(--gray-500);">@${u.username}</div>
+                    </div>
+                    <div style="color:var(--primary); font-weight:800; font-size:0.7rem;">+ ADICIONAR</div>
+                </div>
+            `).join('');
+        } else {
+            results.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--gray-500);">Nenhum utilizador encontrado.</div>';
+        }
+    } catch(e) {
+        results.innerHTML = '<div style="padding:1rem; color:red;">Erro na pesquisa.</div>';
+    }
+}
+
+async function addMember(userId, name) {
+    const formData = new FormData();
+    formData.append('action', 'add');
+    formData.append('sala_id', salaId);
+    formData.append('user_id', userId);
+    formData.append('papel', 'eleitor');
+    formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
+    
+    try {
+        const res = await fetch('api/members.php', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`${name} adicionado com sucesso!`, 'success');
+            document.getElementById('memberSearch').value = '';
+            document.getElementById('memberSearchResults').style.display = 'none';
+            loadMembers();
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch(e) {
+        showToast('Erro ao adicionar membro.', 'error');
+    }
+}
+
+async function removeMember(userId) {
+    if (!confirm('Tem certeza que deseja remover este membro da sala?')) return;
+    
+    const formData = new FormData();
+    formData.append('action', 'remove');
+    formData.append('sala_id', salaId);
+    formData.append('user_id', userId);
+    formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
+    
+    try {
+        const res = await fetch('api/members.php', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Membro removido.', 'info');
+            loadMembers();
+        }
+    } catch(e) {
+        showToast('Erro ao remover membro.', 'error');
+    }
+}
+
+// Close search on click outside
+document.addEventListener('click', e => {
+    if (!e.target.closest('#memberSearch') && !e.target.closest('#memberSearchResults')) {
+        document.getElementById('memberSearchResults').style.display = 'none';
+    }
+});
+
+// Initial load
+loadMembers();
+
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

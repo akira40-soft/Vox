@@ -377,9 +377,11 @@ require 'includes/header.php';
                     <div class="form-group">
                         <label>Âmbito</label>
                         <select name="tipo" class="form-control">
-                            <option value="nacional"     <?= $_SESSION['wizard_data']['tipo'] == 'nacional'     ? 'selected' : '' ?>>Nacional</option>
-                            <option value="municipal"    <?= $_SESSION['wizard_data']['tipo'] == 'municipal'    ? 'selected' : '' ?>>Municipal</option>
-                            <option value="institucional"<?= $_SESSION['wizard_data']['tipo'] == 'institucional'? 'selected' : '' ?>>Institucional</option>
+                            <option value="institucional"<?= $_SESSION['wizard_data']['tipo'] == 'institucional'? 'selected' : '' ?>>🏛️ Institucional (Padrão)</option>
+                            <option value="nacional"     <?= $_SESSION['wizard_data']['tipo'] == 'nacional'     ? 'selected' : '' ?>>🌍 Nacional</option>
+                            <option value="municipal"    <?= $_SESSION['wizard_data']['tipo'] == 'municipal'    ? 'selected' : '' ?>>🏙️ Municipal</option>
+                            <option value="comunitario"  <?= $_SESSION['wizard_data']['tipo'] == 'comunitario'  ? 'selected' : '' ?>>👥 Comunitário</option>
+                            <option value="pesquisa"     <?= $_SESSION['wizard_data']['tipo'] == 'pesquisa'     ? 'selected' : '' ?>>📊 Pesquisa / Inquérito</option>
                         </select>
                     </div>
                     <div class="form-group">
