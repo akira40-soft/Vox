@@ -545,12 +545,12 @@ if ($salaId > 0 && $_SESSION['user_role'] !== 'admin') {
                 <span id="phase-banner-countdown" style="margin-left:auto; font-size:0.85rem; opacity:0.8;"></span>
             </div>
 
-            <!-- GLOBAL COUNTDOWN TIMER (Visible during Voting) -->
+            <!-- GLOBAL COUNTDOWN TIMER (Visible during Countdown Phases) -->
             <div class="vote-countdown" id="voteCountdown" style="display:none">
                 <div style="position: relative; z-index: 2;">
-                    <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.15em; opacity:0.6; margin-bottom:0.35rem; font-weight:800;">Estado das Urnas</div>
-                    <div style="font-size:1.35rem; font-weight:900; letter-spacing:-0.5px; display:flex; align-items:center; gap:0.5rem;">
-                        <span style="color:#10b981; font-size:1.5rem;">●</span> A Votação termina em
+                    <div id="cd-title-1" style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.15em; opacity:0.6; margin-bottom:0.35rem; font-weight:800;">Estado das Urnas</div>
+                    <div id="cd-title-2" style="font-size:1.35rem; font-weight:900; letter-spacing:-0.5px; display:flex; align-items:center; gap:0.5rem;">
+                        <span id="cd-indicator" style="color:#10b981; font-size:1.5rem;">●</span> <span id="cd-text">A Votação termina em</span>
                     </div>
                 </div>
                 <div class="countdown-units">
@@ -1772,10 +1772,32 @@ function updatePhaseUI(data) {
         pIcon.textContent = '⏳';
         pText.textContent = 'Eleição em Espera';
         pCountdown.textContent = f.proxima ? `Abertura em: ${formatTime(f.segundos_restantes)}` : 'Aguardando configuração';
+        
+        if (f.segundos_restantes && f.segundos_restantes > 0) {
+            document.getElementById('voteCountdown').style.display = 'flex';
+            document.getElementById('cd-title-1').textContent = 'Eleição em Espera';
+            document.getElementById('cd-text').textContent = 'Abertura em';
+            document.getElementById('cd-indicator').style.color = '#fcd34d'; // yellow
+            startVotingCountdown(f.segundos_restantes);
+        } else {
+            document.getElementById('voteCountdown').style.display = 'none';
+            stopVotingCountdown();
+        }
     } else if (f.nome === 'campanha') {
         pIcon.textContent = '📢';
         pText.textContent = 'Fase de Campanha Eleitoral';
         pCountdown.textContent = f.proxima ? `Urnas abrem em: ${formatTime(f.segundos_restantes)}` : 'Campanha em curso';
+        
+        if (f.segundos_restantes && f.segundos_restantes > 0) {
+            document.getElementById('voteCountdown').style.display = 'flex';
+            document.getElementById('cd-title-1').textContent = 'Fase de Campanha';
+            document.getElementById('cd-text').textContent = 'Urnas abrem em';
+            document.getElementById('cd-indicator').style.color = '#3b82f6'; // blue
+            startVotingCountdown(f.segundos_restantes);
+        } else {
+            document.getElementById('voteCountdown').style.display = 'none';
+            stopVotingCountdown();
+        }
     } else if (f.nome === 'votacao') {
         pIcon.textContent = '🗳️';
         pText.textContent = 'Votação Aberta';
@@ -1783,60 +1805,81 @@ function updatePhaseUI(data) {
         
         if (f.segundos_restantes && f.segundos_restantes > 0) {
             document.getElementById('voteCountdown').style.display = 'flex';
-            // Simple update of internal countdown UI if needed
-            document.getElementById('cd-h').textContent = Math.floor(f.segundos_restantes / 3600).toString().padStart(2,'0');
-            document.getElementById('cd-m').textContent = Math.floor((f.segundos_restantes % 3600) / 60).toString().padStart(2,'0');
-            document.getElementById('cd-s').textContent = (f.segundos_restantes % 60).toString().padStart(2,'0');
+            document.getElementById('cd-title-1').textContent = 'Estado das Urnas';
+            document.getElementById('cd-text').textContent = 'A Votação termina em';
+            document.getElementById('cd-indicator').style.color = '#10b981'; // green
+            startVotingCountdown(f.segundos_restantes);
+        } else {
+            document.getElementById('voteCountdown').style.display = 'none';
+            stopVotingCountdown();
         }
     } else if (f.nome === 'estatisticas' || f.nome === 'encerrada') {
         pIcon.textContent = '📊';
         pText.textContent = 'Resultados Finais';
         pCountdown.textContent = 'Votação Encerrada';
         document.getElementById('voteCountdown').style.display = 'none';
+        stopVotingCountdown();
     }
 
-    // Automatic reload when timer hits 0
-    if (f.segundos_restantes === 0) {
-        setTimeout(() => location.reload(), 2000);
-    }
-
+    // Automatic reload handled inside the countdown timer to be more exact
     // Tab visibility/locks logic handled in switchSocialTab
 }
 
 // Countdown Timer logic for Voting
 let cdTimer = null;
-function startVotingCountdown(endTimeIso) {
-    clearInterval(cdTimer);
-    const end = new Date(endTimeIso).getTime();
+let currentSecondsLeft = 0;
+
+function stopVotingCountdown() {
+    if (cdTimer) {
+        clearInterval(cdTimer);
+        cdTimer = null;
+    }
+}
+
+function startVotingCountdown(secondsLeft) {
+    currentSecondsLeft = secondsLeft;
+    
+    if (cdTimer) {
+        // Just sync the time if interval is already running
+        return;
+    }
+    
+    updateCountdownUI();
     
     cdTimer = setInterval(() => {
-        const now = new Date().getTime();
-        const dist = end - now;
+        currentSecondsLeft--;
         
-        if (dist < 0) {
-            clearInterval(cdTimer);
+        if (currentSecondsLeft <= 0) {
+            stopVotingCountdown();
             document.getElementById('cd-h').textContent = '00';
             document.getElementById('cd-m').textContent = '00';
             document.getElementById('cd-s').textContent = '00';
             document.getElementById('voteCountdown').classList.remove('urgency-pulse');
+            
+            // Reload to trigger next phase!
+            setTimeout(() => location.reload(), 2000);
             return;
         }
         
-        // Add urgency class if < 5 minutes
-        if (dist < 5 * 60 * 1000) {
-            document.getElementById('voteCountdown').classList.add('urgency-pulse');
-        } else {
-            document.getElementById('voteCountdown').classList.remove('urgency-pulse');
-        }
-        
-        const h = Math.floor((dist % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)) + Math.floor(dist / (1000 * 60 * 60 * 24)) * 24;
-        const m = Math.floor((dist % (1000 * 60 * 60)) / (1000 * 60));
-        const s = Math.floor((dist % (1000 * 60)) / 1000);
-        
-        document.getElementById('cd-h').textContent = h.toString().padStart(2, '0');
-        document.getElementById('cd-m').textContent = m.toString().padStart(2, '0');
-        document.getElementById('cd-s').textContent = s.toString().padStart(2, '0');
+        updateCountdownUI();
     }, 1000);
+}
+
+function updateCountdownUI() {
+    // Add urgency class if < 5 minutes
+    if (currentSecondsLeft < 5 * 60) {
+        document.getElementById('voteCountdown').classList.add('urgency-pulse');
+    } else {
+        document.getElementById('voteCountdown').classList.remove('urgency-pulse');
+    }
+    
+    const h = Math.floor(currentSecondsLeft / 3600);
+    const m = Math.floor((currentSecondsLeft % 3600) / 60);
+    const s = Math.floor(currentSecondsLeft % 60);
+    
+    document.getElementById('cd-h').textContent = h.toString().padStart(2, '0');
+    document.getElementById('cd-m').textContent = m.toString().padStart(2, '0');
+    document.getElementById('cd-s').textContent = s.toString().padStart(2, '0');
 }
 
 // Initial poll and set interval

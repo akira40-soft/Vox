@@ -139,10 +139,10 @@ require 'includes/header.php';
 
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem;">
             <?php foreach ($recentElections as $sala): ?>
-                <div class="ve-card" style="padding: 1.5rem;">
+                <div class="ve-card room-card-live" data-room-id="<?= $sala['id'] ?>" style="padding: 1.5rem;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                        <span class="badge" style="background: var(--blue-light); color: var(--blue-dark);"><?= htmlspecialchars($sala['provincia_nome'] ?? 'Nacional') ?></span>
-                        <span style="font-size: 0.8rem; font-weight: 800; color: var(--primary);"><i class="fa fa-ticket"></i> <?= (int)$sala['total_votos'] ?> Votos</span>
+                        <span class="badge" id="badge-estado-<?= $sala['id'] ?>" style="background: var(--blue-light); color: var(--blue-dark);"><?= htmlspecialchars($sala['provincia_nome'] ?? 'Nacional') ?></span>
+                        <span style="font-size: 0.8rem; font-weight: 800; color: var(--primary); transition: color 0.3s;" id="live-votes-container-<?= $sala['id'] ?>"><i class="fa fa-ticket"></i> <span id="live-votes-<?= $sala['id'] ?>"><?= (int)$sala['total_votos'] ?></span> Votos</span>
                     </div>
                     <h4 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 0.75rem; color: var(--text-header);"><?= htmlspecialchars($sala['nome']) ?></h4>
                     <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.5;"><?= htmlspecialchars(substr($sala['descricao'] ?? '', 0, 100)) ?>...</p>
@@ -163,6 +163,49 @@ require 'includes/header.php';
 <style>
     .action-card:hover { transform: translateY(-8px); border-color: var(--primary); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
     .sala-feed-card:hover { transform: scale(1.02); border-color: var(--primary); }
+    
+    @keyframes pulse-vote {
+        0% { transform: scale(1); color: var(--primary); }
+        50% { transform: scale(1.2); color: #10b981; }
+        100% { transform: scale(1); color: var(--primary); }
+    }
+    .vote-updated { animation: pulse-vote 0.5s ease-in-out; }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const roomCards = document.querySelectorAll('.room-card-live');
+    if (roomCards.length === 0) return;
+
+    const roomIds = Array.from(roomCards).map(card => card.getAttribute('data-room-id')).join(',');
+
+    setInterval(async () => {
+        try {
+            const res = await fetch(`api/home_live.php?rooms=${roomIds}`);
+            const data = await res.json();
+            
+            if (data.success && data.data) {
+                for (const [id, info] of Object.entries(data.data)) {
+                    const countEl = document.getElementById(`live-votes-${id}`);
+                    if (countEl) {
+                        const currentVal = parseInt(countEl.textContent, 10);
+                        const newVal = parseInt(info.total_votos, 10);
+                        
+                        if (newVal > currentVal) {
+                            countEl.textContent = newVal;
+                            const container = document.getElementById(`live-votes-container-${id}`);
+                            container.classList.remove('vote-updated');
+                            void container.offsetWidth; // trigger reflow
+                            container.classList.add('vote-updated');
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Failed to poll home live data", e);
+        }
+    }, 5000);
+});
+</script>
 
 <?php require 'includes/footer.php'; ?>
