@@ -3,10 +3,6 @@
  * sala_detalhes.php - Vox Electoral Platform
  * Refactored details page with Accordion UI and Grouped Logic.
  */
-// Debug 500 error
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 require_once 'config/helpers.php';
 $userId = requireAuth();
 generateCSRFToken();

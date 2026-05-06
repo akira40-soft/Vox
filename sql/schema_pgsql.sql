@@ -12,7 +12,7 @@ CREATE TYPE vote_sim_nao AS ENUM ('sim', 'nao');
 CREATE TYPE campanha_tipo AS ENUM ('proposta', 'comicio', 'debate', 'manifesto');
 CREATE TYPE denuncia_estado AS ENUM ('pendente', 'em_analise', 'resolvida', 'rejeitada');
 CREATE TYPE convite_estado AS ENUM ('pendente', 'aceite', 'recusado');
-CREATE TYPE reacao_tipo AS ENUM ('like', 'heart', 'clap', 'fire');
+CREATE TYPE reacao_tipo AS ENUM ('like', 'heart', 'clap', 'fire', 'adorado', 'hater');
 
 -- 2. Trigger function for ON UPDATE CURRENT_TIMESTAMP behavior
 CREATE OR REPLACE FUNCTION update_updated_at_column()
