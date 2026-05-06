@@ -54,7 +54,7 @@ try {
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) AS total
                 FROM notificacoes
-                WHERE user_id = :uid AND lida = 0
+                WHERE user_id = :uid AND lida = FALSE
             ");
             $stmt->execute(['uid' => $userId]);
             $row = $stmt->fetch();
@@ -108,15 +108,15 @@ try {
             }
             $stmt = $pdo->prepare("
                 UPDATE notificacoes
-                SET lida = 1
-                WHERE id = :id AND user_id = :uid AND lida = 0
+                SET lida = TRUE
+                WHERE id = :id AND user_id = :uid AND lida = FALSE
             ");
             $stmt->execute(['id' => $notifId, 'uid' => $userId]);
 
             // Return updated count
             $countStmt = $pdo->prepare("
                 SELECT COUNT(*) AS total FROM notificacoes
-                WHERE user_id = :uid AND lida = 0
+                WHERE user_id = :uid AND lida = FALSE
             ");
             $countStmt->execute(['uid' => $userId]);
             $count = (int)$countStmt->fetchColumn();
@@ -132,8 +132,8 @@ try {
         case 'mark_all':
             $stmt = $pdo->prepare("
                 UPDATE notificacoes
-                SET lida = 1
-                WHERE user_id = :uid AND lida = 0
+                SET lida = TRUE
+                WHERE user_id = :uid AND lida = FALSE
             ");
             $stmt->execute(['uid' => $userId]);
             $affected = $stmt->rowCount();

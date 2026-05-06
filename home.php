@@ -1,4 +1,8 @@
 <?php
+// Debug 500 error
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 require_once 'config/helpers.php';
 $userId = requireAuth();
 
@@ -37,12 +41,12 @@ if ($userRole === 'organizador') {
     
     // Fetch rooms where voter participated
     $stmt = $pdo->prepare("
-        SELECT s.*, v.criado_em as data_voto
+        SELECT s.*, MAX(v.criado_em) as data_voto
         FROM votos v
         JOIN salas_eleitorais s ON v.sala_id = s.id
         WHERE v.user_id = ?
-        GROUP BY s.id
-        ORDER BY v.criado_em DESC
+        GROUP BY s.id, s.nome, s.descricao, s.codigo_acesso, s.tipo, s.provincia_origem, s.organizador_id, s.estado, s.data_inicio, s.data_fim, s.data_campanha_inicio, s.data_campanha_fim, s.data_votacao_inicio, s.data_votacao_fim, s.fase_atual, s.arquivada_em, s.voto_anonimo, s.permitir_campanha, s.criado_em, s.atualizado_em, s.visibilidade
+        ORDER BY data_voto DESC
         LIMIT 4
     ");
     $stmt->execute([$userId]);

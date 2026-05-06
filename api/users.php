@@ -131,14 +131,14 @@ try {
             $user->execute([$userId]);
             $u = $user->fetch();
 
-            // Insert into candidatos (user fills profile later)
+            // Insert into candidatos (Using ON CONFLICT for PG compatibility)
             $pdo->prepare("
-                INSERT IGNORE INTO candidatos (user_id, sala_id, nome, criado_por)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO candidatos (user_id, sala_id, nome, criado_por)
+                VALUES (?, ?, ?, ?) ON CONFLICT (user_id, sala_id) DO NOTHING
             ")->execute([$userId, $convite['sala_id'], $u['nome_completo'], $convite['sala_id']]);
 
-            // Register as member
-            $pdo->prepare("INSERT IGNORE INTO sala_membros (sala_id, user_id, papel) VALUES (?,?,'candidato')")
+            // Register as member (Using ON CONFLICT for PG compatibility)
+            $pdo->prepare("INSERT INTO sala_membros (sala_id, user_id, papel) VALUES (?,?,'candidato') ON CONFLICT (sala_id, user_id) DO NOTHING")
                 ->execute([$convite['sala_id'], $userId]);
 
             // Send notification to user about acceptance

@@ -160,8 +160,8 @@ if ($salaId > 0 && $_SESSION['user_role'] !== 'admin') {
     $membro = $stmtM->fetch();
 
     if (!$membro) {
-        // Not a member yet, add as eleitor
-        $stmtIns = $pdo->prepare("INSERT IGNORE INTO sala_membros (sala_id, user_id, papel) VALUES (?, ?, 'eleitor')");
+        // Not a member yet, add as eleitor (Using ON CONFLICT for PG compatibility)
+        $stmtIns = $pdo->prepare("INSERT INTO sala_membros (sala_id, user_id, papel) VALUES (?, ?, 'eleitor') ON CONFLICT (sala_id, user_id) DO NOTHING");
         if ($stmtIns->execute([$salaId, $userId])) {
             // Send welcome notification
             notifyUser($userId, 'info', 

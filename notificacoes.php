@@ -10,7 +10,7 @@ $pdo = getDB();
 
 // Handle Mark All as Read
 if (isset($_POST['mark_all_read'])) {
-    $stmt = $pdo->prepare("UPDATE notificacoes SET lida = 1 WHERE user_id = ? AND lida = 0");
+    $stmt = $pdo->prepare("UPDATE notificacoes SET lida = TRUE WHERE user_id = ? AND lida = FALSE");
     $stmt->execute([$userId]);
     $_SESSION['flash_message'] = "Todas as notificações foram marcadas como lidas.";
     header("Location: notificacoes.php");

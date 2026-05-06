@@ -144,8 +144,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmt->execute([$salaId, $temaId, $c['user_id'], $c['nome'], $c['biografia'], $c['partido'], $c['slogan'], $userId]);
                         
                         if (!empty($c['user_id'])) {
-                            // Adiciona diretamente o membro à sala, bypass do convite pendente
-                            $stmtMembro = $pdo->prepare("INSERT IGNORE INTO sala_membros (sala_id, user_id, papel) VALUES (?, ?, 'candidato')");
+                            // Adiciona diretamente o membro à sala, bypass do convite pendente (Using ON CONFLICT for PG compatibility)
+                            $stmtMembro = $pdo->prepare("INSERT INTO sala_membros (sala_id, user_id, papel) VALUES (?, ?, 'candidato') ON CONFLICT (sala_id, user_id) DO NOTHING");
                             $stmtMembro->execute([$salaId, $c['user_id']]);
 
                             // Envia notificação de adição direta com link para a sala

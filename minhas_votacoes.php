@@ -10,11 +10,11 @@ $userId = requireAuth();
 $stmt = $pdo->prepare("
     SELECT s.id, s.nome, s.codigo_acesso, s.estado,
            MIN(v.criado_em) as data_voto,
-           v.voto_hash
+           MAX(v.voto_hash) as voto_hash
     FROM votos v
     JOIN salas_eleitorais s ON v.sala_id = s.id
     WHERE v.user_id = ?
-    GROUP BY s.id
+    GROUP BY s.id, s.nome, s.codigo_acesso, s.estado
     ORDER BY data_voto DESC
 ");
 $stmt->execute([$userId]);

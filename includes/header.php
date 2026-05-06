@@ -13,7 +13,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 // Fetch unread notifications count
 $notifCount = 0;
 if ($isLoggedIn) {
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM notificacoes WHERE user_id = ? AND lida = 0");
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM notificacoes WHERE user_id = ? AND lida = FALSE");
     $stmt->execute([$_SESSION['user_id']]);
     $notifCount = (int)$stmt->fetchColumn();
 }

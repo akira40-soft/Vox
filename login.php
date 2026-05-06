@@ -1,4 +1,8 @@
 <?php
+// Debug 500 error
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 require_once 'config/helpers.php';
 
 if (isset($_SESSION['user_id'])) {

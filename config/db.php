@@ -2,29 +2,71 @@
 /**
  * db.php - Vox Electoral Platform
  * Database connection (PDO, singleton pattern)
+ * Enhanced for Render & PostgreSQL support
  */
-
-if (!defined('DB_HOST'))    define('DB_HOST', '127.0.0.1');
-if (!defined('DB_NAME'))    define('DB_NAME', 'vox_db');
-if (!defined('DB_USER'))    define('DB_USER', 'root');
-if (!defined('DB_PASS'))    define('DB_PASS', '');
-if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8mb4');
 
 function getDB() {
     static $pdo = null;
     if ($pdo === null) {
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+        // Render provides DATABASE_URL
+        $dbUrl = getenv('DATABASE_URL');
+        
+        if ($dbUrl) {
+            // Parse DATABASE_URL (postgresql://user:pass@host:port/dbname)
+            $parsedUrl = parse_url($dbUrl);
+            $dbHost = $parsedUrl['host'] ?? 'localhost';
+            $dbPort = $parsedUrl['port'] ?? '5432';
+            $dbUser = $parsedUrl['user'] ?? '';
+            $dbPass = $parsedUrl['pass'] ?? '';
+            $dbName = ltrim($parsedUrl['path'] ?? '', '/');
+            
+            // Build PostgreSQL DSN. 
+            // We use sslmode=require for Render compatibility, but allow override if needed.
+            $dsn = "pgsql:host=$dbHost;port=$dbPort;dbname=$dbName;sslmode=require";
+        } else {
+            // Fallback to individual env vars or constants (Local Development)
+            $dbHost = getenv('DB_HOST') ?: '127.0.0.1';
+            $dbName = getenv('DB_NAME') ?: 'vox_db';
+            $dbUser = getenv('DB_USER') ?: 'root';
+            $dbPass = getenv('DB_PASS') ?: '';
+            $dbPort = getenv('DB_PORT') ?: '3306';
+            $driver = getenv('DB_DRIVER') ?: 'mysql';
+
+            if ($driver === 'pgsql') {
+                $dsn = "pgsql:host=$dbHost;port=$dbPort;dbname=$dbName";
+            } else {
+                $dsn = "mysql:host=$dbHost;port=$dbPort;dbname=$dbName;charset=utf8mb4";
+            }
+        }
+
         $options = [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false,
+            PDO::ATTR_TIMEOUT            => 5,
         ];
+
         try {
-            $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+            $pdo = new PDO($dsn, $dbUser, $dbPass, $options);
+            
+            // Set timezone for the connection if Postgres
+            if (str_contains($dsn, 'pgsql')) {
+                $pdo->exec("SET TIME ZONE 'Africa/Luanda'");
+            }
         } catch (PDOException $e) {
-            error_log("DB Connection Error: " . $e->getMessage());
-            http_response_code(500);
-            die("Erro de ligacao a base de dados. Por favor, tente mais tarde.");
+            // If sslmode=require fails, try without it as a last resort
+            if (str_contains($e->getMessage(), 'SSL')) {
+                try {
+                    $dsnNoSsl = str_replace('sslmode=require', 'sslmode=disable', $dsn);
+                    $pdo = new PDO($dsnNoSsl, $dbUser, $dbPass, $options);
+                } catch (PDOException $e2) {
+                    error_log("DB Connection Error: " . $e2->getMessage());
+                    die("Erro de ligação à base de dados.");
+                }
+            } else {
+                error_log("DB Connection Error: " . $e->getMessage());
+                die("Erro de ligação à base de dados.");
+            }
         }
     }
     return $pdo;
