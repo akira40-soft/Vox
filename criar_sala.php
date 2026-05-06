@@ -118,6 +118,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data = $_SESSION['wizard_data'];
                 $codigo = generateCode('VOX');
 
+                // Auto-migrate: garante que as colunas novas existem no PostgreSQL
+                try {
+                    $pdo->exec("ALTER TABLE salas_eleitorais ADD COLUMN IF NOT EXISTS nome_organizacao VARCHAR(255) DEFAULT NULL");
+                    $pdo->exec("ALTER TABLE salas_eleitorais ADD COLUMN IF NOT EXISTS tipo_votacao_sala VARCHAR(50) DEFAULT 'maioria_simples'");
+                } catch (PDOException $e) { /* colunas já existem */ }
+
                 $stmt = $pdo->prepare("
                     INSERT INTO salas_eleitorais 
                         (nome, descricao, codigo_acesso, tipo, visibilidade, provincia_origem,
