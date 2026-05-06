@@ -68,7 +68,7 @@ foreach ($temas as $tema) {
             FROM candidatos c
             LEFT JOIN votos v ON v.candidato_id = c.id AND v.tema_id = ?
             WHERE c.tema_id = ?
-            GROUP BY c.id
+            GROUP BY c.id, c.nome, c.partido, c.slogan
             ORDER BY num_votos DESC
         ");
         $stmt->execute([$tema['id'], $tema['id']]);

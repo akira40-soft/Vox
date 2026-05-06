@@ -31,7 +31,7 @@ $temasStmt = $pdo->prepare("
     FROM temas t
     LEFT JOIN candidatos c ON c.tema_id = t.id
     WHERE t.sala_id = :sala_id
-    GROUP BY t.id
+    GROUP BY t.id, t.sala_id, t.titulo, t.descricao, t.ordem, t.tipo_votacao, t.criado_em, t.atualizado_em
     ORDER BY t.ordem ASC, t.titulo ASC
 ");
 $temasStmt->execute(['sala_id' => $salaId]);

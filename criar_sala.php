@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $data['data_campanha_fim']    ?: null,
                     $data['data_votacao_inicio']  ?: null,
                     $data['data_votacao_fim']     ?: null,
-                    $data['voto_anonimo'], $data['permitir_campanha']
+                    (bool)($data['voto_anonimo'] ?? true), (bool)($data['permitir_campanha'] ?? true)
                 ]);
                 $salaId = $pdo->lastInsertId();
 
